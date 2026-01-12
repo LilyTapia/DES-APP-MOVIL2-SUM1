@@ -1,92 +1,44 @@
-# VeterinariaApp - Evaluación Final Transversal (Semana 9)
+# VeterinariaApp - Formativa 1 (Desarrollo App Móviles II)
 
-## Objetivo General
-
-Este proyecto corresponde a la **Evaluación Final Transversal (Semana 9)**. El objetivo principal ha sido consolidar una aplicación Android funcional y robusta, integrando componentes
- nativos como **Services**, **Broadcast Receivers** e **Intents**, manteniendo la arquitectura **MVVM** y aplicando principios de **Material Design 3**. Además, se han incorporado **pruebas unitarias** para garantizar la calidad y el correcto funcionamiento de la lógica de negocio.
-
----
-
-## 1. Características Implementadas (Consolidado)
-
-### a. Componentes Nativos
-- **Activity**: Separación lógica en `MainActivity` y `ConsultasActivity`.
-- **Service**: `NotificacionService` implementado como *Foreground Service* para recordatorios.
-- **Content Provider**: `VeterinariaProvider` para exponer datos de mascotas de forma segura.
-- **Broadcast Receiver**: `ConnectivityReceiver` para monitorear el estado de la red.
-
-### b. Navegación e Intents
-- **Intents Explícitos**: Para la navegación entre actividades.
-- **Intents Implícitos**: Para compartir resúmenes de consultas.
-- **Intent Filters**: Configuración de Deep Link.
-
-### c. Interfaz de Usuario (UI) Moderna
-- Implementación 100% con **Jetpack Compose** y **Material Theme 3**.
-- Uso de `Scaffold`, `LazyColumn`, `Cards`, y `Navigation Drawer`.
-- Validaciones de formularios en tiempo real.
+## 📌 Objetivo de la Entrega (Semana 1)
+El enfoque principal de esta semana ha sido diseñar una interfaz de usuario funcional utilizando **Jetpack Compose**, aplicando principios de **UX y accesibilidad digital**:
+- **Jerarquía Visual**: Uso de tipografías y contrastes de Material Design 3.
+- **Accesibilidad**: Navegación coherente y etiquetas descriptivas.
+- **Feedback Dinámico**: Validaciones en tiempo real en formularios de registro.
 
 ---
 
-## 2. Pruebas Unitarias (Semana 9)
+## 🛠️ Características Técnicas del Proyecto
 
-Se han añadido pruebas unitarias utilizando **JUnit** y **Mockito** para validar la lógica de negocio en los ViewModels, asegurando que los casos de uso principales funcionen como se espera.
+### 1. Interfaz de Usuario (UI) Moderna
+- Implementación 100% en **Jetpack Compose**.
+- Uso de componentes avanzados: `Scaffold`, `LazyColumn`, `StateFlow` para manejo de estados, y animaciones de transición.
+- **Navegación**: Flujo estructurado entre datos del dueño y datos de la mascota.
 
--   **`RegistroViewModelTest`**:
-    -   Verifica que el registro de un dueño sea exitoso cuando los datos son válidos.
-    -   Comprueba que el estado de la UI se actualice correctamente a `Success` tras un registro válido.
--   **Objetivo**: Garantizar la fiabilidad del flujo de registro y la correcta gestión del estado.
+### 2. Componentes Nativos de Android
+- **Foreground Service**: `NotificacionService` para alertas y recordatorios de citas.
+- **Broadcast Receiver**: `ConnectivityReceiver` que monitorea el estado de la red para asegurar la sincronización.
+- **Content Provider**: `VeterinariaProvider` para permitir el acceso seguro a los datos de las mascotas.
+- **Intents**: Uso de Intents explícitos para navegación e implícitos para compartir información.
 
----
-
-## 3. Arquitectura MVVM
-
-El proyecto mantiene la estructura **Model-View-ViewModel** para asegurar modularidad y escalabilidad:
-
--   **Model**: Entidades (`Mascota`, `Consulta`) y Lógica de Negocio.
--   **View**: Pantallas en Compose, sin lógica de negocio.
--   **ViewModel**: Gestión del estado de la UI y comunicación con la capa de datos.
-
----
-
-## 4. Estructura del Proyecto
-
-```
-app/
-└── src/
-    ├── main/
-    │   └── java/cl/duoc/veterinaria/
-    │       ├── MainActivity.kt
-    │       ├── ConsultasActivity.kt
-    │       ├── data/
-    │       ├── model/
-    │       ├── provider/
-    │       ├── receiver/
-    │       ├── service/
-    │       └── ui/
-    │           ├── navigation/
-    │           ├── registro/
-    │           └── viewmodel/
-    └── test/
-        └── java/cl/duoc/veterinaria/
-            └── ui/viewmodel/
-                └── RegistroViewModelTest.kt  (Pruebas Unitarias)
-```
+### 3. Lógica de Negocio y Arquitectura
+- **Patrón MVVM**: Separación clara entre la vista y la lógica de datos.
+- **Principios SOLID**: Aplicación del principio *Open/Closed* en el sistema de medicamentos y descuentos.
+- **KISS**: Código simple y mantenible en los modelos de datos (`Mascota`, `Dueno`, `Cliente`).
+- **Validaciones**: Utilidades con Regex para asegurar la integridad de correos y teléfonos.
 
 ---
 
-## 5. Instrucciones de Ejecución
-
-1.  **Requisitos**: Android Studio Koala o superior.
-2.  **Sincronización**: Permitir la sincronización de Gradle al abrir.
-3.  **Ejecución**:
-    - Ejecutar en un emulador (Recomendado API 34).
-    - Para probar el **Broadcast Receiver**, alternar el modo avión o WiFi.
-    - Para probar el **Service**, finalizar un registro para ver la notificación.
-4.  **Ejecutar Pruebas**:
-    - Clic derecho en `RegistroViewModelTest.kt` y seleccionar "Run '''RegistroViewModelTest'''".
+## 🧪 Calidad y Pruebas
+- **Unit Testing**: Pruebas unitarias con JUnit y Mockito para los ViewModels (ej: `RegistroViewModelTest`), asegurando que la lógica de negocio responda correctamente ante datos válidos e inválidos.
 
 ---
 
-**Autor:**
-Liliana Tapia
-**Asignatura:** Desarrollo de Apps Móviles I - DUOC UC
+## 🚀 Instrucciones de Ejecución
+1.  **Requisitos**: Android Studio Koala o superior y API 34 (recomendado).
+2.  **Sincronización**: Abrir el proyecto y esperar la sincronización de Gradle.
+3.  **Tests**: Para ejecutar las pruebas, clic derecho en la carpeta `test` -> "Run 'Tests in cl.duoc...'".
+
+---
+**Autor:** Liliana Tapia  
+**Institución:** DUOC UC
