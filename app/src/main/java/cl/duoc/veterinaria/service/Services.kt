@@ -1,5 +1,6 @@
 package cl.duoc.veterinaria.service
 
+import cl.duoc.veterinaria.data.local.entities.ConsultaEntity
 import cl.duoc.veterinaria.model.Mascota
 import cl.duoc.veterinaria.model.TipoServicio
 import cl.duoc.veterinaria.model.Veterinario
@@ -13,10 +14,9 @@ import kotlin.math.round
 
 /**
  * Servicio encargado de la lógica de agenda y asignación de veterinarios.
- * Principio SOLID: Single Responsibility Principle (SRP).
  */
 object AgendaVeterinario {
-    private val veterinarios = listOf(
+    val veterinarios = listOf(
         Veterinario("Dr. Pérez", "General"),
         Veterinario("Dra. González", "Cirugía"),
         Veterinario("Dr. Soto", "Dermatología")
@@ -24,26 +24,41 @@ object AgendaVeterinario {
 
     private val FORMATO_FECHA_HORA = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm")
 
-    fun siguienteSlotHabil(clock: Clock): LocalDateTime {
-        var fecha = LocalDateTime.now(clock).plusHours(1)
-        // Lógica simple: Buscar siguiente hora hábil (9 a 18 hrs, Lunes a Viernes)
-        while (fecha.hour < 9 || fecha.hour >= 18 || fecha.dayOfWeek == DayOfWeek.SATURDAY || fecha.dayOfWeek == DayOfWeek.SUNDAY) {
-            fecha = fecha.plusHours(1)
-            if (fecha.hour >= 18) {
-                fecha = fecha.plusDays(1).withHour(9).withMinute(0)
+    /**
+     * Busca el primer bloque disponible considerando todos los veterinarios y las citas existentes.
+     */
+    fun buscarSiguienteDisponible(consultasExistentes: List<ConsultaEntity>, clock: Clock): Pair<Veterinario, LocalDateTime> {
+        var fecha = LocalDateTime.now(clock).plusHours(1).withMinute(0).withSecond(0).withNano(0)
+        
+        while (true) {
+            // 1. Validar si el día y hora son hábiles (L-V, 09:00 a 18:00)
+            val esFinDeSemana = fecha.dayOfWeek == DayOfWeek.SATURDAY || fecha.dayOfWeek == DayOfWeek.SUNDAY
+            val fueraDeHorario = fecha.hour < 9 || fecha.hour >= 18
+            
+            if (esFinDeSemana || fueraDeHorario) {
+                fecha = if (fecha.hour >= 18) {
+                    fecha.plusDays(1).withHour(9).withMinute(0)
+                } else if (fecha.hour < 9) {
+                    fecha.withHour(9).withMinute(0)
+                } else {
+                    fecha.plusHours(1).withMinute(0)
+                }
+                continue
             }
-        }
-        return fecha.withMinute(0).withSecond(0).withNano(0)
-    }
 
-    fun reservarBloque(fechaInicio: LocalDateTime, bloques: Int): Pair<Veterinario, List<LocalDateTime>> {
-        val slots = mutableListOf<LocalDateTime>()
-        var actual = fechaInicio
-        repeat(bloques) {
-            slots.add(actual)
-            actual = actual.plusMinutes(30)
+            // 2. Intentar asignar un veterinario libre para esta fecha/hora
+            val fechaStr = fmt(fecha)
+            val veterinarioLibre = veterinarios.firstOrNull { vet ->
+                consultasExistentes.none { it.fechaHora == fechaStr && it.veterinario == vet.nombre }
+            }
+
+            if (veterinarioLibre != null) {
+                return Pair(veterinarioLibre, fecha)
+            }
+
+            // 3. Si todos los veterinarios están ocupados en este bloque, saltar 30 minutos
+            fecha = fecha.plusMinutes(30)
         }
-        return Pair(veterinarios.random(), slots)
     }
 
     fun fmt(fecha: LocalDateTime): String = fecha.format(FORMATO_FECHA_HORA)

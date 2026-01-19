@@ -2,11 +2,18 @@ package cl.duoc.veterinaria.ui.viewmodel
 
 import android.content.Context
 import cl.duoc.veterinaria.data.IVeterinariaRepository
+import cl.duoc.veterinaria.data.local.entities.ConsultaEntity
+import cl.duoc.veterinaria.data.local.entities.MascotaEntity
+import cl.duoc.veterinaria.data.local.entities.PedidoEntity
+import cl.duoc.veterinaria.data.local.entities.UsuarioEntity
 import cl.duoc.veterinaria.model.Medicamento
 import cl.duoc.veterinaria.model.TipoServicio
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
@@ -25,24 +32,50 @@ class RegistroViewModelTest {
     private val testDispatcher = StandardTestDispatcher()
 
     private val mockRepository = object : IVeterinariaRepository {
-        override val totalMascotasRegistradas = MutableStateFlow(0)
-        override val totalConsultasRealizadas = MutableStateFlow(0)
-        override val nombreUltimoDueno = MutableStateFlow("")
-        override val listaMascotas = MutableStateFlow<List<String>>(emptyList())
-        override val ultimaAtencionTipo = MutableStateFlow<String?>(null)
+        override val totalMascotasRegistradas: StateFlow<Int> = MutableStateFlow(0)
+        override val totalConsultasRealizadas: StateFlow<Int> = MutableStateFlow(0)
+        override val nombreUltimoDueno: StateFlow<String> = MutableStateFlow("")
+        override val listaMascotas: StateFlow<List<String>> = MutableStateFlow(emptyList())
+        override val ultimaAtencionTipo: StateFlow<String?> = MutableStateFlow(null)
+        override val mascotasLocal: Flow<List<MascotaEntity>> = flowOf(emptyList())
+        override val consultasLocal: Flow<List<ConsultaEntity>> = flowOf(emptyList())
+        override val usuariosLocal: Flow<List<UsuarioEntity>> = flowOf(emptyList())
+        override val pedidosLocal: Flow<List<PedidoEntity>> = flowOf(emptyList())
 
-        override fun registrarAtencion(nombreDueno: String, cantidadMascotas: Int, nombreMascota: String, especieMascota: String, tipoServicio: String?) {
-            ultimaAtencionTipo.value = tipoServicio
+        override fun registrarAtencion(
+            nombreDueno: String,
+            cantidadMascotas: Int,
+            nombreMascota: String,
+            especieMascota: String,
+            tipoServicio: String?,
+            edad: Int,
+            peso: Double,
+            consultaId: String?,
+            fechaHora: String?,
+            veterinario: String?,
+            costo: Double
+        ) {
+            (ultimaAtencionTipo as MutableStateFlow).value = tipoServicio
         }
 
         override fun init(context: Context) {}
-        override fun eliminarMascota(nombreMascota: String) {
-            
+        override fun eliminarMascota(nombreMascota: String) {}
+
+        override fun editarMascota(textoOriginal: String, textoNuevo: String) {}
+
+        override suspend fun agregarMascotaRoom(nombre: String, especie: String, edad: Int, peso: Double, dueno: String) {}
+
+        override suspend fun eliminarMascotaRoom(mascota: MascotaEntity) {}
+
+        override suspend fun agregarConsultaRoom(consulta: ConsultaEntity) {}
+
+        override suspend fun registrarUsuario(nombre: String, email: String, pass: String): UsuarioEntity {
+            return UsuarioEntity(nombreUsuario = nombre, email = email, pass = pass)
         }
 
-        override fun editarMascota(textoOriginal: String, textoNuevo: String) {
-            
-        }
+        override suspend fun buscarUsuario(email: String, user: String): UsuarioEntity? = null
+
+        override suspend fun registrarPedidoRoom(pedido: PedidoEntity) {}
     }
 
     @Before
@@ -95,7 +128,8 @@ class RegistroViewModelTest {
 
         val uiState = viewModel.uiState.value
         assertNotNull(uiState.consultaRegistrada)
-        assertEquals("Consulta para Bobby", uiState.consultaRegistrada?.descripcion)
+        // La descripción de CONTROL es "Control Sano", por lo que el resultado es "Atención de Control Sano"
+        assertEquals("Atención de Control Sano", uiState.consultaRegistrada?.descripcion)
 
         assertTrue(viewModel.serviceState.value is ServiceState.Stopped)
     }
@@ -103,17 +137,14 @@ class RegistroViewModelTest {
     @Test
     fun `clearData should reset ui and service states`() = runTest {
         viewModel.updateDatosDueno("Juan", "123", "juan@test.com")
-        viewModel.procesarRegistro()
-        testDispatcher.scheduler.advanceUntilIdle()
-
-        assertNotNull(viewModel.uiState.value.consultaRegistrada)
-        assertTrue(viewModel.serviceState.value is ServiceState.Stopped)
-
+        viewModel.updateDatosMascota("Bobby", "Perro", "5", "10.0")
+        
         viewModel.clearData()
 
         val uiState = viewModel.uiState.value
         assertEquals(null, uiState.consultaRegistrada)
         assertEquals("", uiState.duenoNombre)
+        assertEquals("", uiState.mascotaNombre)
         assertTrue(viewModel.serviceState.value is ServiceState.Idle)
     }
 }

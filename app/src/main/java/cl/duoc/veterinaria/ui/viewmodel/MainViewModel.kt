@@ -4,25 +4,47 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import cl.duoc.veterinaria.data.IVeterinariaRepository
 import cl.duoc.veterinaria.data.VeterinariaRepository
-import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.*
 
 /**
- * MainViewModel gestiona los datos mostrados en la pantalla de inicio (Bienvenida).
- * @param repository Inyección de dependencia del repositorio (por defecto usa la implementación Singleton).
+ * MainViewModel gestiona los datos mostrados en la pantalla de inicio y el estado global del tema.
  */
 class MainViewModel(
     private val repository: IVeterinariaRepository = VeterinariaRepository
 ) : ViewModel() {
 
-    // Exponemos los flujos del repositorio a través de la interfaz
-    val totalMascotas: StateFlow<Int> = repository.totalMascotasRegistradas
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
+    private val _currentUser = MutableStateFlow("")
+    
+    // Estado para el modo oscuro
+    private val _isDarkMode = MutableStateFlow(false)
+    val isDarkMode: StateFlow<Boolean> = _isDarkMode.asStateFlow()
 
-    val totalConsultas: StateFlow<Int> = repository.totalConsultasRealizadas
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
+    fun toggleDarkMode() {
+        _isDarkMode.value = !_isDarkMode.value
+    }
 
-    val ultimoDueno: StateFlow<String> = repository.nombreUltimoDueno
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "N/A")
+    /**
+     * Establece el usuario actual para filtrar las estadísticas.
+     */
+    fun setCurrentUser(name: String) {
+        _currentUser.value = name
+    }
+
+    // Calcula el total de mascotas solo para el usuario actual
+    val totalMascotas: StateFlow<Int> = combine(repository.mascotasLocal, _currentUser) { list, user ->
+        if (user.lowercase() == "admin" || user.lowercase() == "vet") {
+            list.size
+        } else {
+            list.count { it.nombreDueno.equals(user, ignoreCase = true) }
+        }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
+
+    // Calcula las consultas de hoy solo para el usuario actual
+    val totalConsultas: StateFlow<Int> = combine(repository.consultasLocal, _currentUser) { list, user ->
+        if (user.lowercase() == "admin" || user.lowercase() == "vet") {
+            list.size
+        } else {
+            list.count { it.duenoNombre.equals(user, ignoreCase = true) }
+        }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
 }

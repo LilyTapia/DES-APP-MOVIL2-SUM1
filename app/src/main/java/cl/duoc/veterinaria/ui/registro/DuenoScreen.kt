@@ -38,12 +38,13 @@ fun DuenoScreen(
     val uiState by viewModel.uiState.collectAsState()
     val loginState by loginViewModel.uiState.collectAsState()
     
-    // Autocompleta el nombre si el usuario ya inició sesión
+    // CORRECCIÓN: Autocompleta SIEMPRE con el usuario que tiene la sesión iniciada
     LaunchedEffect(loginState.currentUser) {
-        if (uiState.duenoNombre.isBlank() && loginState.currentUser != null) {
+        val user = loginState.currentUser
+        if (user != null) {
             viewModel.updateDatosDueno(
-                nombre = loginState.currentUser!!.nombreUsuario,
-                email = loginState.currentUser!!.email
+                nombre = user.nombreUsuario,
+                email = user.email
             )
         }
     }

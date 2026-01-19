@@ -1,31 +1,31 @@
 package cl.duoc.veterinaria.ui.auth
 
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import android.util.Patterns
+import cl.duoc.veterinaria.data.IVeterinariaRepository
+import cl.duoc.veterinaria.data.VeterinariaRepository
+import cl.duoc.veterinaria.model.Usuario
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
-import android.util.Patterns
-import cl.duoc.veterinaria.model.Usuario
+import kotlinx.coroutines.launch
 
 enum class RecoveryStatus { IDLE, SUCCESS, ERROR }
 
-class LoginViewModel : ViewModel() {
+class LoginViewModel(
+    private val repository: IVeterinariaRepository = VeterinariaRepository
+) : ViewModel() {
 
     private val _uiState = MutableStateFlow(LoginUiState())
     val uiState: StateFlow<LoginUiState> = _uiState.asStateFlow()
-
-    private val _usuarios = MutableStateFlow(mutableListOf(
-        Usuario(1, "liliana", "liliana@gmail.com", "123456"),
-        Usuario(2, "Colomba", "Colomba@gmail.com", "colomba123"),
-        Usuario(3, "Wilda", "Wilda@gmail.com", "wilda1")
-    ))
 
     fun logout() {
         _uiState.update { 
             it.copy(
                 isLoggedIn = false, 
-                isRegisterMode = false, // Aseguramos que vuelva al Inicio de Sesión
+                isRegisterMode = false,
                 currentUser = null,
                 user = "",
                 pass = "",
@@ -37,24 +37,13 @@ class LoginViewModel : ViewModel() {
 
     fun onLoginChange(user: String, pass: String) {
         _uiState.update {
-            it.copy(
-                user = user,
-                pass = pass,
-                userError = null,
-                passError = null,
-                loginError = null
-            )
+            it.copy(user = user, pass = pass, userError = null, passError = null, loginError = null)
         }
     }
 
     fun onRegisterDataChange(nombre: String, email: String, pass: String) {
         _uiState.update {
-            it.copy(
-                registerNombre = nombre,
-                registerEmail = email,
-                registerPass = pass,
-                registerError = null
-            )
+            it.copy(registerNombre = nombre, registerEmail = email, registerPass = pass, registerError = null)
         }
     }
 
@@ -65,33 +54,20 @@ class LoginViewModel : ViewModel() {
     fun login() {
         val userInput = _uiState.value.user
         val passInput = _uiState.value.pass
-        var userError: String? = null
-        var passError: String? = null
-        var formatIsValid = true
-
-        if (userInput.isBlank()) {
-            userError = "El campo no puede estar vacío"
-            formatIsValid = false
-        }
-
-        if (passInput.length < 6) {
-            passError = "Mínimo 6 caracteres"
-            formatIsValid = false
-        }
-
-        if (!formatIsValid) {
-            _uiState.update { it.copy(userError = userError, passError = passError) }
+        
+        if (userInput.isBlank() || passInput.isBlank()) {
+            _uiState.update { it.copy(loginError = "Complete todos los campos") }
             return
         }
 
-        val usuarioEncontrado = _usuarios.value.find { 
-            it.nombreUsuario.equals(userInput, ignoreCase = true) || it.email.equals(userInput, ignoreCase = true) 
-        }
-
-        if (usuarioEncontrado != null && usuarioEncontrado.pass == passInput) {
-            _uiState.update { it.copy(isLoggedIn = true, currentUser = usuarioEncontrado) }
-        } else {
-            _uiState.update { it.copy(loginError = "Usuario o contraseña incorrectos") }
+        viewModelScope.launch {
+            val userEntity = repository.buscarUsuario(userInput, userInput)
+            if (userEntity != null && userEntity.pass == passInput) {
+                val usuarioModel = Usuario(userEntity.id, userEntity.nombreUsuario, userEntity.email, userEntity.pass)
+                _uiState.update { it.copy(isLoggedIn = true, currentUser = usuarioModel) }
+            } else {
+                _uiState.update { it.copy(loginError = "Usuario o contraseña incorrectos") }
+            }
         }
     }
 
@@ -110,30 +86,20 @@ class LoginViewModel : ViewModel() {
             return
         }
 
-        if (_usuarios.value.any { it.email.equals(email, ignoreCase = true) }) {
-            _uiState.update { it.copy(registerError = "El correo ya está registrado") }
-            return
+        viewModelScope.launch {
+            val exist = repository.buscarUsuario(email, nombre)
+            if (exist != null) {
+                _uiState.update { it.copy(registerError = "El usuario o correo ya existe") }
+            } else {
+                val entity = repository.registrarUsuario(nombre, email, pass)
+                val usuarioModel = Usuario(entity.id, entity.nombreUsuario, entity.email, entity.pass)
+                _uiState.update { it.copy(isLoggedIn = true, currentUser = usuarioModel, isRegisterMode = false) }
+            }
         }
-
-        val nuevoUsuario = Usuario(
-            id = _usuarios.value.size + 1,
-            nombreUsuario = nombre,
-            email = email,
-            pass = pass
-        )
-
-        _usuarios.value.add(nuevoUsuario)
-        _uiState.update { it.copy(isLoggedIn = true, currentUser = nuevoUsuario, isRegisterMode = false) }
     }
 
     fun onRecoveryEmailChange(email: String) {
-        _uiState.update {
-            it.copy(
-                recoveryEmail = email,
-                recoveryEmailError = null,
-                recoveryStatus = RecoveryStatus.IDLE
-            )
-        }
+        _uiState.update { it.copy(recoveryEmail = email, recoveryEmailError = null, recoveryStatus = RecoveryStatus.IDLE) }
     }
 
     fun requestPasswordRecovery() {
@@ -143,11 +109,13 @@ class LoginViewModel : ViewModel() {
             return
         }
 
-        val emailExists = _usuarios.value.any { it.email == email }
-        if (emailExists) {
-            _uiState.update { it.copy(recoveryStatus = RecoveryStatus.SUCCESS) }
-        } else {
-            _uiState.update { it.copy(recoveryStatus = RecoveryStatus.ERROR) }
+        viewModelScope.launch {
+            val user = repository.buscarUsuario(email, "")
+            if (user != null) {
+                _uiState.update { it.copy(recoveryStatus = RecoveryStatus.SUCCESS) }
+            } else {
+                _uiState.update { it.copy(recoveryStatus = RecoveryStatus.ERROR) }
+            }
         }
     }
 

@@ -25,7 +25,6 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import cl.duoc.veterinaria.ConsultasActivity
 import cl.duoc.veterinaria.R
-import cl.duoc.veterinaria.service.NotificacionService
 import cl.duoc.veterinaria.ui.auth.LoginViewModel
 import cl.duoc.veterinaria.ui.viewmodel.MainViewModel
 import kotlinx.coroutines.delay
@@ -39,6 +38,7 @@ fun BienvenidaScreen(
     onNavigateToListado: () -> Unit,
     onNavigateToPedidos: () -> Unit,
     onNavigateToMisAtenciones: () -> Unit,
+    onNavigateToAgenda: () -> Unit,
     viewModel: MainViewModel = viewModel(),
     loginViewModel: LoginViewModel = viewModel()
 ) {
@@ -46,10 +46,11 @@ fun BienvenidaScreen(
     val totalMascotas by viewModel.totalMascotas.collectAsState()
     val totalConsultas by viewModel.totalConsultas.collectAsState()
     val loginUiState by loginViewModel.uiState.collectAsState()
+    val isDarkMode by viewModel.isDarkMode.collectAsState()
     
     val nombreSesion = loginUiState.currentUser?.nombreUsuario ?: "Invitado"
+    val esAdministrador = nombreSesion.lowercase() == "admin" || nombreSesion.lowercase() == "vet"
 
-    var showMenu by remember { mutableStateOf(false) }
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
     var isVisible by remember { mutableStateOf(false) }
@@ -64,13 +65,25 @@ fun BienvenidaScreen(
         drawerContent = {
             ModalDrawerSheet {
                 Spacer(Modifier.height(16.dp))
-                Text(
-                    text = "Hola, $nombreSesion",
-                    modifier = Modifier.padding(16.dp),
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(16.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Hola, $nombreSesion",
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    // Botón de Modo Oscuro en el Menú
+                    IconButton(onClick = { viewModel.toggleDarkMode() }) {
+                        Icon(
+                            imageVector = if (isDarkMode) Icons.Default.LightMode else Icons.Default.DarkMode,
+                            contentDescription = "Cambiar Tema"
+                        )
+                    }
+                }
                 HorizontalDivider()
                 Spacer(Modifier.height(16.dp))
 
@@ -89,7 +102,18 @@ fun BienvenidaScreen(
                         scope.launch { drawerState.close() }
                         onNavigateToMisAtenciones() 
                     },
-                    icon = { Icon(Icons.Default.Person, contentDescription = null) },
+                    icon = { Icon(Icons.Default.History, contentDescription = null) },
+                    modifier = Modifier.padding(horizontal = 12.dp)
+                )
+
+                NavigationDrawerItem(
+                    label = { Text("Mi Agenda") },
+                    selected = false,
+                    onClick = { 
+                        scope.launch { drawerState.close() }
+                        onNavigateToAgenda() 
+                    },
+                    icon = { Icon(Icons.Default.DateRange, contentDescription = null) },
                     modifier = Modifier.padding(horizontal = 12.dp)
                 )
 
@@ -104,17 +128,19 @@ fun BienvenidaScreen(
                     modifier = Modifier.padding(horizontal = 12.dp)
                 )
 
-                NavigationDrawerItem(
-                    label = { Text("Listado General") },
-                    selected = false,
-                    onClick = { 
-                        scope.launch { drawerState.close() }
-                        val intent = Intent(context, ConsultasActivity::class.java)
-                        context.startActivity(intent)
-                    },
-                    icon = { Icon(Icons.AutoMirrored.Filled.List, contentDescription = null) },
-                    modifier = Modifier.padding(horizontal = 12.dp)
-                )
+                if (esAdministrador) {
+                    NavigationDrawerItem(
+                        label = { Text("Gestión Clínica (Listado)") },
+                        selected = false,
+                        onClick = { 
+                            scope.launch { drawerState.close() }
+                            val intent = Intent(context, ConsultasActivity::class.java)
+                            context.startActivity(intent)
+                        },
+                        icon = { Icon(Icons.AutoMirrored.Filled.List, contentDescription = null) },
+                        modifier = Modifier.padding(horizontal = 12.dp)
+                    )
+                }
 
                 NavigationDrawerItem(
                     label = { Text("Farmacia (Pedidos)") },
@@ -133,11 +159,10 @@ fun BienvenidaScreen(
                     label = { Text("Cerrar Sesión") },
                     selected = false,
                     onClick = {
-                        // Ahora sí cerramos la sesión en el ViewModel
                         loginViewModel.logout()
                         scope.launch { drawerState.close() }
                     },
-                    icon = { Icon(Icons.Default.ExitToApp, contentDescription = "Salir de la aplicación") },
+                    icon = { Icon(Icons.Default.ExitToApp, contentDescription = "Salir") },
                     modifier = Modifier.padding(horizontal = 12.dp)
                 )
             }
@@ -149,30 +174,7 @@ fun BienvenidaScreen(
                     title = { Text("VeterinariaApp") },
                     navigationIcon = {
                         IconButton(onClick = { scope.launch { drawerState.open() } }) {
-                            Icon(Icons.Default.Menu, contentDescription = "Abrir menú lateral")
-                        }
-                    },
-                    actions = {
-                        IconButton(onClick = { showMenu = true }) {
-                            Icon(Icons.Default.MoreVert, contentDescription = "Opciones")
-                        }
-                        DropdownMenu(
-                            expanded = showMenu,
-                            onDismissRequest = { showMenu = false }
-                        ) {
-                            DropdownMenuItem(
-                                text = { Text("Perfil") },
-                                onClick = { showMenu = false },
-                                leadingIcon = { Icon(Icons.Default.Person, contentDescription = null) }
-                            )
-                            DropdownMenuItem(
-                                text = { Text("Cerrar Sesión") },
-                                onClick = { 
-                                    showMenu = false
-                                    loginViewModel.logout()
-                                },
-                                leadingIcon = { Icon(Icons.Default.ExitToApp, contentDescription = null) }
-                            )
+                            Icon(Icons.Default.Menu, contentDescription = "Abrir menú")
                         }
                     }
                 )
@@ -212,15 +214,15 @@ fun BienvenidaScreen(
                                 color = MaterialTheme.colorScheme.primary
                             )
                             
-                            Spacer(modifier = Modifier.height(32.dp))
+                            Spacer(modifier = Modifier.height(16.dp))
 
                             Image(
                                 painter = painterResource(id = R.drawable.logoinicial),
                                 contentDescription = "Logo",
-                                modifier = Modifier.size(180.dp)
+                                modifier = Modifier.size(150.dp)
                             )
 
-                            Spacer(modifier = Modifier.height(40.dp))
+                            Spacer(modifier = Modifier.height(16.dp))
 
                             Card(
                                 modifier = Modifier.fillMaxWidth(),
@@ -228,35 +230,41 @@ fun BienvenidaScreen(
                                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
                             ) {
                                 Column(
-                                    modifier = Modifier.padding(20.dp).fillMaxWidth(),
+                                    modifier = Modifier.padding(16.dp).fillMaxWidth(),
                                     horizontalAlignment = Alignment.CenterHorizontally
                                 ) {
                                     Text(
                                         text = "Estado del Día",
                                         style = MaterialTheme.typography.titleLarge,
                                         fontWeight = FontWeight.Bold,
-                                        color = MaterialTheme.colorScheme.secondary,
-                                        textAlign = TextAlign.Center
+                                        color = MaterialTheme.colorScheme.secondary
                                     )
-                                    Spacer(modifier = Modifier.height(20.dp))
+                                    Spacer(modifier = Modifier.height(16.dp))
                                     
-                                    SummaryItem(
-                                        icon = Icons.AutoMirrored.Filled.List,
-                                        label = "Mascotas activas",
-                                        value = totalMascotas.toString()
-                                    )
-                                    Spacer(modifier = Modifier.height(16.dp))
-                                    SummaryItem(
-                                        icon = Icons.Default.DateRange,
-                                        label = "Consultas hoy",
-                                        value = totalConsultas.toString()
-                                    )
-                                    Spacer(modifier = Modifier.height(16.dp))
-                                    SummaryItem(
-                                        icon = Icons.Default.Person,
-                                        label = "Sesión activa",
-                                        value = nombreSesion
-                                    )
+                                    SummaryItem(icon = Icons.AutoMirrored.Filled.List, label = "Mascotas activas", value = totalMascotas.toString())
+                                    SummaryItem(icon = Icons.Default.DateRange, label = "Consultas hoy", value = totalConsultas.toString())
+                                    SummaryItem(icon = Icons.Default.Person, label = "Sesión activa", value = nombreSesion)
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(16.dp))
+
+                            if (!esAdministrador) {
+                                Card(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f))
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(12.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(Icons.Default.Info, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                                        Spacer(modifier = Modifier.width(12.dp))
+                                        Column {
+                                            Text("Cuida a tu mascota 🐾", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                                            Text("Agenda controles y compra medicamentos.", style = MaterialTheme.typography.bodySmall)
+                                        }
+                                    }
                                 }
                             }
 
@@ -264,21 +272,21 @@ fun BienvenidaScreen(
 
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(16.dp)
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
                             ) {
                                 Button(
-                                    onClick = onNavigateToMisAtenciones,
-                                    modifier = Modifier.weight(1f).height(56.dp),
+                                    onClick = onNavigateToAgenda,
+                                    modifier = Modifier.weight(1f).height(50.dp),
                                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
                                 ) {
-                                    Text("Ver Agenda", fontWeight = FontWeight.SemiBold)
+                                    Text("Ver Agenda", fontSize = 14.sp)
                                 }
                                 Button(
                                     onClick = onNavigateToNext,
-                                    modifier = Modifier.weight(1f).height(56.dp),
+                                    modifier = Modifier.weight(1f).height(50.dp),
                                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
                                 ) {
-                                    Text("Nuevo Registro", fontWeight = FontWeight.SemiBold)
+                                    Text("Nuevo Registro", fontSize = 14.sp)
                                 }
                             }
                         }
@@ -293,19 +301,14 @@ fun BienvenidaScreen(
 fun SummaryItem(icon: ImageVector, label: String, value: String) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.Center,
-        modifier = Modifier.fillMaxWidth()
+        horizontalArrangement = Arrangement.Start,
+        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp, horizontal = 24.dp)
     ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.size(24.dp)
-        )
+        Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
         Spacer(modifier = Modifier.width(16.dp))
-        Column(horizontalAlignment = Alignment.Start) {
-            Text(text = label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
-            Text(text = value, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold)
+        Column {
+            Text(text = label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+            Text(text = value, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
         }
     }
 }

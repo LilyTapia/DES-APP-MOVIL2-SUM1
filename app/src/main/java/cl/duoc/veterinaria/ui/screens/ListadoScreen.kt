@@ -1,8 +1,6 @@
 package cl.duoc.veterinaria.ui.screens
 
-import android.widget.Toast
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -25,11 +23,8 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -39,38 +34,28 @@ import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import cl.duoc.veterinaria.data.local.entities.MascotaEntity
 import cl.duoc.veterinaria.ui.viewmodel.ConsultaViewModel
-import cl.duoc.veterinaria.ui.viewmodel.SortOrder
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -81,42 +66,12 @@ fun ListadoScreen(
     viewModel: ConsultaViewModel = viewModel(),
     modifier: Modifier = Modifier
 ) {
-    val listaMascotas by viewModel.listaPacientes.collectAsState()
+    val listaMascotas by viewModel.listaMascotasRoom.collectAsState()
     val searchQuery by viewModel.searchQuery.collectAsState()
     val availableSpecies by viewModel.availableSpecies.collectAsState()
     val speciesFilter by viewModel.speciesFilter.collectAsState()
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
-
-    var showEditDialog by remember { mutableStateOf(false) }
-    var showDetailSheet by remember { mutableStateOf(false) }
-    var selectedMascota by remember { mutableStateOf("") }
-    var editedText by remember { mutableStateOf("") }
-    
-    val sheetState = rememberModalBottomSheetState()
-
-    if (showEditDialog) {
-        AlertDialog(
-            onDismissRequest = { showEditDialog = false },
-            title = { Text(text = "Editar Registro") },
-            text = {
-                OutlinedTextField(
-                    value = editedText,
-                    onValueChange = { editedText = it },
-                    modifier = Modifier.fillMaxWidth(),
-                    label = { Text("Detalles") }
-                )
-            },
-            confirmButton = {
-                Button(onClick = {
-                    viewModel.editarConsulta(selectedMascota, editedText)
-                    scope.launch { snackbarHostState.showSnackbar("Actualizado correctamente") }
-                    showEditDialog = false
-                }) { Text("Guardar") }
-            },
-            dismissButton = { TextButton(onClick = { showEditDialog = false }) { Text("Cancelar") } }
-        )
-    }
 
     Scaffold(
         modifier = modifier,
@@ -124,7 +79,7 @@ fun ListadoScreen(
         topBar = {
             TopAppBar(
                 title = { 
-                    Text("Pacientes", fontWeight = FontWeight.Bold) 
+                    Text("Listado de Pacientes", fontWeight = FontWeight.Bold) 
                 },
                 navigationIcon = {
                     IconButton(onClick = onBack) { 
@@ -178,8 +133,7 @@ fun ListadoScreen(
                     FilterChip(
                         selected = isSelected,
                         onClick = { 
-                            if (species == "Todas") viewModel.onSpeciesFilterChange("Todas")
-                            else viewModel.onSpeciesFilterChange(species)
+                            viewModel.onSpeciesFilterChange(species)
                         },
                         label = { Text(species) },
                         leadingIcon = if (isSelected) {
@@ -204,17 +158,12 @@ fun ListadoScreen(
                         EmptyState()
                     }
                 } else {
-                    items(listaMascotas) { itemText ->
+                    items(listaMascotas) { mascota ->
                         MascotaListItem(
-                            fullText = itemText,
-                            onEdit = { 
-                                selectedMascota = itemText
-                                editedText = itemText
-                                showEditDialog = true 
-                            },
+                            mascota = mascota,
                             onDelete = { 
-                                viewModel.eliminarConsulta(itemText)
-                                scope.launch { snackbarHostState.showSnackbar("Paciente eliminado") }
+                                viewModel.eliminarMascota(mascota)
+                                scope.launch { snackbarHostState.showSnackbar("Paciente ${mascota.nombre} eliminado") }
                             }
                         )
                     }
@@ -226,34 +175,14 @@ fun ListadoScreen(
 
 @Composable
 fun MascotaListItem(
-    fullText: String,
-    onEdit: () -> Unit,
+    mascota: MascotaEntity,
     onDelete: () -> Unit
 ) {
-    // Intentamos separar la info para mostrarla mejor con safe handling
-    val petName = if (fullText.contains("Mascota: ")) {
-        fullText.substringAfter("Mascota: ").substringBefore(" (")
-    } else {
-        "Paciente"
-    }
-    
-    val species = if (fullText.contains("(") && fullText.contains(")")) {
-        fullText.substringAfter("(").substringBefore(")")
-    } else {
-        "Animal"
-    }
-    
-    val owner = if (fullText.contains("Dueño: ")) {
-        fullText.substringAfter("Dueño: ")
-    } else {
-        "N/A"
-    }
-
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Row(
             modifier = Modifier
@@ -270,7 +199,7 @@ fun MascotaListItem(
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = if (petName.isNotEmpty()) petName.take(1).uppercase() else "P",
+                    text = mascota.nombre.take(1).uppercase(),
                     style = MaterialTheme.typography.titleLarge,
                     color = MaterialTheme.colorScheme.primary,
                     fontWeight = FontWeight.Bold
@@ -281,24 +210,24 @@ fun MascotaListItem(
 
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = petName,
+                    text = mascota.nombre,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold
                 )
                 Text(
-                    text = "$species • Dueño: $owner",
+                    text = "${mascota.especie} • Dueño: ${mascota.nombreDueno}",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.outline
                 )
+                Text(
+                    text = "Edad: ${mascota.edad} años • Peso: ${mascota.pesoKg} kg",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.outline.copy(alpha = 0.8f)
+                )
             }
 
-            Row {
-                IconButton(onClick = onEdit) {
-                    Icon(Icons.Default.Edit, contentDescription = "Editar", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
-                }
-                IconButton(onClick = onDelete) {
-                    Icon(Icons.Default.Delete, contentDescription = "Eliminar", tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f), modifier = Modifier.size(20.dp))
-                }
+            IconButton(onClick = onDelete) {
+                Icon(Icons.Default.Delete, contentDescription = "Eliminar", tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f), modifier = Modifier.size(20.dp))
             }
         }
     }
@@ -325,7 +254,7 @@ fun EmptyState() {
             color = MaterialTheme.colorScheme.outline
         )
         Text(
-            text = "Intenta cambiar los filtros de búsqueda",
+            text = "Intenta registrar un nuevo paciente o cambiar los filtros",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.outline.copy(alpha = 0.7f)
         )

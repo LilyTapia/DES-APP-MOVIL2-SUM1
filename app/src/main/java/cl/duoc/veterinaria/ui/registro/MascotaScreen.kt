@@ -1,32 +1,10 @@
 package cl.duoc.veterinaria.ui.registro
 
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.Button
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExposedDropdownMenuBox
-import androidx.compose.material3.ExposedDropdownMenuDefaults
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.MenuAnchorType
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
@@ -43,9 +21,13 @@ fun MascotaScreen(viewModel: RegistroViewModel, onNextClicked: () -> Unit) {
 
     val especies = listOf("Perro", "Gato", "Hamster", "Conejo", "Ave", "Otro")
     var expanded by remember { mutableStateOf(false) }
+    
+    // Estado local para cuando eligen 'Otro'
+    var especieOtro by remember { mutableStateOf("") }
+    val esOtroSeleccionado = uiState.mascotaEspecie == "Otro"
 
     val isFormValid = uiState.mascotaNombre.isNotBlank() &&
-                      uiState.mascotaEspecie.isNotBlank() &&
+                      (if (esOtroSeleccionado) especieOtro.isNotBlank() else uiState.mascotaEspecie.isNotBlank()) &&
                       (uiState.mascotaEdad.toIntOrNull() ?: -1) >= 0 &&
                       (uiState.mascotaPeso.toDoubleOrNull() ?: -1.0) > 0.0
 
@@ -73,7 +55,6 @@ fun MascotaScreen(viewModel: RegistroViewModel, onNextClicked: () -> Unit) {
             color = MaterialTheme.colorScheme.primary
         )
 
-        // Se agrega la leyenda descriptiva solicitada
         Text(
             text = "Ingrese la información de su compañero", 
             style = MaterialTheme.typography.bodyMedium,
@@ -88,6 +69,7 @@ fun MascotaScreen(viewModel: RegistroViewModel, onNextClicked: () -> Unit) {
             isError = uiState.mascotaNombre.isBlank(),
             errorMessage = "El nombre es obligatorio"
         )
+        
         Spacer(modifier = Modifier.height(12.dp))
         
         Box(modifier = Modifier.fillMaxWidth()) {
@@ -120,6 +102,18 @@ fun MascotaScreen(viewModel: RegistroViewModel, onNextClicked: () -> Unit) {
                     }
                 }
             }
+        }
+
+        // CAMPO DINÁMICO: Solo aparece si selecciona 'Otro'
+        if (esOtroSeleccionado) {
+            Spacer(modifier = Modifier.height(12.dp))
+            RegistroTextField(
+                value = especieOtro,
+                label = "Especifique especie (ej: Tortuga)",
+                onValueChange = { especieOtro = it },
+                isError = especieOtro.isBlank(),
+                errorMessage = "Por favor, indique qué animal es"
+            )
         }
         
         Spacer(modifier = Modifier.height(12.dp))
@@ -156,7 +150,13 @@ fun MascotaScreen(viewModel: RegistroViewModel, onNextClicked: () -> Unit) {
         Spacer(modifier = Modifier.weight(1f))
         
         Button(
-            onClick = onNextClicked,
+            onClick = {
+                // Si eligió 'Otro', actualizamos el ViewModel con la especie escrita manualmente
+                if (esOtroSeleccionado) {
+                    viewModel.updateDatosMascota(especie = especieOtro)
+                }
+                onNextClicked()
+            },
             modifier = Modifier.fillMaxWidth().height(56.dp),
             enabled = isFormValid
         ) {
